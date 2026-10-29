@@ -10,10 +10,27 @@
 - Понятные сообщения об ошибках на русском языке
 
 ## Установка и запуск
+
+### ALT Linux (Sisyphus / p10)
+```bash
+# Системные зависимости (от root, через su или sudo)
+apt-get install python3-module-pip python3-dev zlib-devel tar
+
+# Виртуальное окружение и зависимости Python (от обычного пользователя)
+cd numbers-converter
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+
+# Запуск
+venv/bin/python app.py
+```
+
+### Другие системы
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
+
 Откройте в браузере http://localhost:5000
 
 ## Как это работает
