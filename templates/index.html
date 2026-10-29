@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Конвертер Numbers → Excel</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f5f6fa;
+    color: #2d3436;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    padding: 40px;
+    width: 100%;
+    max-width: 520px;
+    text-align: center;
+  }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  p.subtitle { color: #747d8c; font-size: 14px; margin-bottom: 28px; }
+  .dropzone {
+    border: 2px dashed #b2bec3;
+    border-radius: 12px;
+    padding: 40px 20px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: #0984e3;
+    background: #f0f7ff;
+  }
+  .dropzone .icon { font-size: 40px; margin-bottom: 10px; }
+  .dropzone .hint { color: #747d8c; font-size: 13px; margin-top: 6px; }
+  .filename {
+    margin-top: 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0984e3;
+    word-break: break-all;
+    display: none;
+  }
+  button.convert {
+    margin-top: 22px;
+    background: #0984e3;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 36px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+    display: none;
+  }
+  button.convert:hover:not(:disabled) { background: #0b6fc0; }
+  button.convert:disabled { background: #b2bec3; cursor: wait; }
+  .status {
+    margin-top: 18px;
+    font-size: 14px;
+    min-height: 20px;
+  }
+  .status.error { color: #d63031; }
+  .status.success { color: #00b894; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Конвертер Numbers → Excel</h1>
+  <p class="subtitle">Загрузите файл .numbers — получите документ .xlsx</p>
+
+  <div class="dropzone" id="dropzone">
+    <div class="icon">📊</div>
+    <div><strong>Нажмите, чтобы выбрать файл</strong></div>
+    <div class="hint">или перетащите его сюда (.numbers, до 100 МБ)</div>
+  </div>
+  <input type="file" id="fileInput" accept=".numbers" hidden>
+
+  <div class="filename" id="filename"></div>
+  <button class="convert" id="convertBtn">Конвертировать</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const filenameEl = document.getElementById('filename');
+  const convertBtn = document.getElementById('convertBtn');
+  const statusEl = document.getElementById('status');
+  let selectedFile = null;
+
+  function setFile(file) {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.numbers')) {
+      showStatus('Можно выбрать только файл формата .numbers', 'error');
+      return;
+    }
+    selectedFile = file;
+    filenameEl.textContent = file.name;
+    filenameEl.style.display = 'block';
+    convertBtn.style.display = 'inline-block';
+    showStatus('', '');
+  }
+
+  function showStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+  ['dragenter', 'dragover'].forEach(ev =>
+    dropzone.addEventListener(ev, e => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    })
+  );
+  ['dragleave', 'drop'].forEach(ev =>
+    dropzone.addEventListener(ev, e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+    })
+  );
+  dropzone.addEventListener('drop', e => setFile(e.dataTransfer.files[0]));
+
+  convertBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    convertBtn.disabled = true;
+    convertBtn.textContent = 'Конвертация…';
+    showStatus('Идёт обработка файла, подождите…', '');
+
+    const form = new FormData();
+    form.append('file', selectedFile);
+
+    try {
+      const resp = await fetch('/api/convert', { method: 'POST', body: form });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedFile.name.replace(/\.numbers$/i, '') + '.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showStatus('Готово! Файл .xlsx скачан.', 'success');
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        showStatus(data.error || 'Ошибка при конвертации.', 'error');
+      }
+    } catch (err) {
+      showStatus('Не удалось связаться с сервером.', 'error');
+    } finally {
+      convertBtn.disabled = false;
+      convertBtn.textContent = 'Конвертировать';
+    }
+  });
+</script>
+</body>
+</html>
